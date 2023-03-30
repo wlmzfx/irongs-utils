@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-
-import javax.annotation.PostConstruct;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -18,40 +16,19 @@ import java.util.concurrent.TimeUnit;
 public class HttpCall {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    private int connectTimeoutInMs = 150000;
+    private long connectTimeoutInMs;
 
-    private int readTimeoutInMs = 150000;
+    private long readTimeoutInMs;
 
-    private String proxyHost;
-    private Integer proxyPort;
-    private Proxy httpProxy;
+    private ProxyConfig proxy;
+
     private OkHttpClient client = null;
-
-    private Map<String, String> mapping;
 
     private static final String exclude = "true";
     private static final String EXCLUDE = "exclude";
 
-    private HttpCall() {
-
-    }
-
-    public HttpCall(String proxyHost, Integer proxyPort) {
-        this.proxyHost = proxyHost;
-        this.proxyPort = proxyPort;
-        init();
-    }
-
-    public HttpCall(HttpCall oldHttpCall, int readTimeoutInMs) {
-        this.proxyHost = oldHttpCall.proxyHost;
-        this.proxyPort = oldHttpCall.proxyPort;
-        this.readTimeoutInMs = readTimeoutInMs;
-        init();
-    }
-
-    public HttpCall(HttpCall oldHttpCall, int readTimeoutInMs, int connectTimeoutInMs ) {
-        this.proxyHost = oldHttpCall.proxyHost;
-        this.proxyPort = oldHttpCall.proxyPort;
+    public HttpCall(ProxyConfig proxy, long readTimeoutInMs, long connectTimeoutInMs) {
+        this.proxy = proxy;
         this.readTimeoutInMs = readTimeoutInMs;
         this.connectTimeoutInMs = connectTimeoutInMs;
         init();
@@ -74,18 +51,8 @@ public class HttpCall {
 
     public void init() {
         final OkHttpClient.Builder builder = new OkHttpClient().newBuilder();
-        if (proxyHost == null || proxyHost.isEmpty()) {
-            proxyHost = System.getProperty("system.proxy.host");
-            final String systemProxyPort = System.getProperty("system.proxy.port");
-            if (systemProxyPort != null && !systemProxyPort.isEmpty()) {
-                proxyPort = Integer.parseInt(systemProxyPort);
-            }
-        }
-
-        if (proxyHost != null) {
-            builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort)));
-        } else if (httpProxy != null) {
-            builder.proxy(httpProxy);
+        if (this.proxy != null) {
+            builder.proxy(this.proxy.getHttpProxy());
         }
 
         builder.connectTimeout(connectTimeoutInMs, TimeUnit.MILLISECONDS)
@@ -523,6 +490,48 @@ public class HttpCall {
 
         return readValue(response, new TypeReference<Map<String, Object>>() {
         });
+
+    }
+
+    public static class Builder {
+        private ProxyConfig proxy;
+        private long connectTimeoutInMs = 30000;
+
+        private long readTimeoutInMs = 30000;
+
+        private Builder() {
+
+        }
+
+        public static Builder create(){
+            return new Builder();
+        }
+
+        public HttpCall build() {
+            HttpCall httpCall = new HttpCall(this.proxy, this.connectTimeoutInMs, this.readTimeoutInMs);
+            httpCall.init();
+            return httpCall;
+        }
+
+        public Builder withProxy(ProxyConfig proxy) {
+            this.proxy = proxy;
+            return this;
+        }
+
+        public Builder withProxxy(String proxyHost, Integer proxyPort) {
+            this.proxy = new ProxyConfig(proxyHost, proxyPort);
+            return this;
+        }
+
+        public Builder withConnectTimeout(int timeout, TimeUnit unit) {
+            this.connectTimeoutInMs = unit.toMillis(timeout);
+            return this;
+        }
+
+        public Builder withReadTimeout(int timeout, TimeUnit unit) {
+            this.readTimeoutInMs = unit.toMillis(timeout);
+            return this;
+        }
 
     }
 

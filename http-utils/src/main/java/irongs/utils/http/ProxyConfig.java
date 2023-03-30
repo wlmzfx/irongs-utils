@@ -12,6 +12,9 @@ public class ProxyConfig {
         this.proxyPort = proxyPort;
     }
 
+    /***
+     * Read the proxy configuration from the system environment variables if not defined.
+     */
     public Proxy getHttpProxy() {
         if (proxyHost == null || proxyHost.isEmpty()) {
             proxyHost = System.getProperty("system.proxy.host");
